@@ -170,10 +170,3 @@ Test coverage includes:
 
 ---
 
-## Scaling Considerations
-
-- **Database**: Replace SQLite with PostgreSQL + connection pooling
-- **Async execution**: Move workflow execution to a task queue (Celery/Redis)
-- **Config hot-reload**: `/reload` endpoint allows rule changes without downtime  
-- **Horizontal scaling**: Idempotency key prevents double-execution across instances
-- **Observability**: Audit log table can feed into data warehouse for analytics
