@@ -141,6 +141,7 @@ Test coverage includes:
 - ✅ Dynamic value expressions
 
 ---
+**You Observe the above output in your terminal after succesfull running of the given bash command**
 
 ## Workflow Statuses
 
