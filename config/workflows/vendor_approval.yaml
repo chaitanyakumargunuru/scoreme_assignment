@@ -1,0 +1,113 @@
+workflow:
+  name: vendor_approval
+  description: "Vendor Onboarding Approval Workflow"
+  version: "1.0"
+
+  # Completely different schema from loan_approval — same engine, different config
+  input_schema:
+    required:
+      - vendor_id
+      - company_name
+      - annual_revenue
+      - years_in_business
+      - category
+      - has_insurance
+    types:
+      vendor_id:          string
+      company_name:       string
+      annual_revenue:     number
+      years_in_business:  integer
+      category:           string
+      has_insurance:      boolean
+    constraints:
+      category:
+        allowed_values:
+          ["technology", "logistics", "manufacturing", "consulting", "other"]
+      years_in_business:
+        min: 0
+
+  stages:
+    - name: validation
+      type: validation
+      on_success: rules_evaluation
+      on_failure: rejected
+
+    - name: rules_evaluation
+      type: rules
+      rules_set: vendor_rules
+      on_success: document_verification
+      on_reject: rejected
+      on_manual_review: manual_review
+
+    - name: document_verification
+      type: external_dependency
+      service: document_verification
+      on_success: approved
+      on_failure: retry
+
+    - name: retry
+      type: retry
+      max_attempts: 2
+      backoff_seconds: 3
+      retry_target: document_verification
+      on_exhausted: manual_review
+
+    - name: approved
+      type: terminal
+      status: APPROVED
+
+    - name: rejected
+      type: terminal
+      status: REJECTED
+
+    - name: manual_review
+      type: terminal
+      status: MANUAL_REVIEW
+
+  rules_sets:
+    vendor_rules:
+
+      - id: insurance_required
+        description: "Vendor must have valid insurance"
+        priority: 1
+        condition:
+          field: has_insurance
+          operator: eq
+          value: true
+        on_fail: reject
+
+      - id: minimum_years_in_business
+        description: "Vendor must have been in business for at least 2 years"
+        priority: 2
+        condition:
+          field: years_in_business
+          operator: gte
+          value: 2
+        on_fail: reject
+
+      - id: minimum_revenue
+        description: "Vendor annual revenue must be at least $100,000"
+        priority: 3
+        condition:
+          field: annual_revenue
+          operator: gte
+          value: 100000
+        on_fail: reject
+
+      - id: large_vendor_review
+        description: "Vendors with revenue over $10M require manual review"
+        priority: 4
+        condition:
+          field: annual_revenue
+          operator: lte
+          value: 10000000
+        on_fail: manual_review
+
+      - id: new_vendor_review
+        description: "Vendors with less than 5 years experience need closer review"
+        priority: 5
+        condition:
+          field: years_in_business
+          operator: gte
+          value: 5
+        on_fail: manual_review

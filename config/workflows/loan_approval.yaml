@@ -1,0 +1,124 @@
+workflow:
+  name: loan_approval
+  description: "Loan Application Approval Workflow"
+  version: "1.0"
+
+  # ── Input Schema ────────────────────────────────────────────────────────
+  # Define required fields, types, and value constraints.
+  # Change rules here without touching any Python code.
+  input_schema:
+    required:
+      - applicant_id
+      - loan_amount
+      - credit_score
+      - annual_income
+      - loan_purpose
+      - employment_status
+    types:
+      applicant_id:       string
+      loan_amount:        number
+      credit_score:       integer
+      annual_income:      number
+      loan_purpose:       string
+      employment_status:  string
+    constraints:
+      credit_score:
+        min: 300
+        max: 850
+      loan_amount:
+        min: 1000
+        max: 10000000
+      employment_status:
+        allowed_values: ["employed", "self_employed", "retired", "unemployed"]
+
+  # ── Workflow Stages ──────────────────────────────────────────────────────
+  # Each stage has a type and routing rules (on_success, on_failure, etc.)
+  stages:
+    - name: validation
+      type: validation
+      on_success: rules_evaluation
+      on_failure: rejected
+
+    - name: rules_evaluation
+      type: rules
+      rules_set: loan_rules
+      on_success: credit_bureau_check
+      on_reject: rejected
+      on_manual_review: manual_review
+
+    - name: credit_bureau_check
+      type: external_dependency
+      service: credit_bureau
+      on_success: approved
+      on_failure: retry
+
+    - name: retry
+      type: retry
+      max_attempts: 3
+      backoff_seconds: 2
+      retry_target: credit_bureau_check
+      on_exhausted: manual_review
+
+    - name: approved
+      type: terminal
+      status: APPROVED
+
+    - name: rejected
+      type: terminal
+      status: REJECTED
+
+    - name: manual_review
+      type: terminal
+      status: MANUAL_REVIEW
+
+  # ── Rules Sets ───────────────────────────────────────────────────────────
+  # Add, remove, or change rules here without code changes.
+  # on_fail options: reject | manual_review | flag
+  # priority: lower number = evaluated first; rejection short-circuits remaining rules
+  rules_sets:
+    loan_rules:
+
+      - id: minimum_credit_score
+        description: "Applicant credit score must be at least 600"
+        priority: 1
+        condition:
+          field: credit_score
+          operator: gte
+          value: 600
+        on_fail: reject
+
+      - id: employment_check
+        description: "Unemployed applicants are automatically rejected"
+        priority: 2
+        condition:
+          field: employment_status
+          operator: neq
+          value: "unemployed"
+        on_fail: reject
+
+      - id: income_to_loan_ratio
+        description: "Loan amount must not exceed 5x annual income"
+        priority: 3
+        condition:
+          field: loan_amount
+          operator: lte
+          value_expression: "annual_income * 5"
+        on_fail: reject
+
+      - id: high_value_loan_review
+        description: "Loans over $500,000 require manual review"
+        priority: 4
+        condition:
+          field: loan_amount
+          operator: lte
+          value: 500000
+        on_fail: manual_review
+
+      - id: borderline_credit_review
+        description: "Credit scores between 600 and 650 require manual review"
+        priority: 5
+        condition:
+          field: credit_score
+          operator: gte
+          value: 650
+        on_fail: manual_review
