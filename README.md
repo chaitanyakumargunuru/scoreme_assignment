@@ -118,7 +118,7 @@ curl -X POST http://localhost:8000/api/v1/submit \
 2. Define `input_schema`, `stages`, and `rules_sets`
 3. Hit `POST /api/v1/reload/my_workflow` (or restart server)
 4. Submit requests with `"workflow_type": "my_workflow"`
-5. 'Config' is the folder where you can upload the schema and configuration for required workflow.
+5. `Config` is the folder where you can upload the schema and configuration for required workflow.
 ---
 
 ## Running Tests
